@@ -1,0 +1,77 @@
+from telegram.ext import Updater, CommandHandler, Filters, MessageHandler
+from telegram import ParseMode
+import sheet
+import json
+
+# Check for new messages via API
+Staging_bot=STAGING_TOKEN
+production_bot=PRODUCTION_TOKEN
+updater = Updater(Staging_bot, use_context=True)
+google_sheet_url=GOOGLE_SHEETS_URL
+
+# allows registering handler (command, text, video)
+dispatcher = updater.dispatcher
+
+def generate_link(string):
+    input_number=str(string)
+    # international numbers
+    if input_number[0]=="+":
+        return ("https://api.whatsapp.com/send?phone="+input_number[1:])
+    # numbers sent with zero
+    elif (input_number[0]=="0"):
+        return ("https://api.whatsapp.com/send?phone=972"+input_number[1:])
+    #in case sent without the zero
+    else:
+        return ("https://api.whatsapp.com/send?phone=972"+input_number)
+
+def log_data(message_obj):
+    wks=sheet.open_sheet(GOOGLE_SHEETS_URL)
+    a_dict=message_obj
+    wks.append_row([str(message_obj['date']),
+                    str(message_obj['chat']['username']),
+                    str(message_obj['chat']['first_name']),
+                    str(message_obj['text']),
+                    str(message_obj['chat'])])
+    next_row = sheet.next_available_row(wks)
+
+    #print(res)
+
+def log_feedback(message_obj):
+    wks=sheet.open_sheet(GOOGLE_SHEETS_URL)
+    a_dict=message_obj
+    wks.append_row([str(message_obj['date']),
+                    str(message_obj['chat']['username']),
+                    str(message_obj['chat']['first_name']),
+                    str(message_obj['text']),
+                    str(message_obj['chat'])])
+    next_row = sheet.next_available_row(wks)
+
+
+# create a command callback function
+def start(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Please enter the phone number. \n"
+                                                                    "example: 052-12345678 \n\n"
+                                                                    "for non-Israeli numbers start with +<country code>\n"
+                                                                    "example: (UK) +44123456789")
+
+start_handler=CommandHandler("start", start)
+
+dispatcher.add_handler(start_handler)
+
+def get_wa_link(update, context):
+    message_obj=update.message
+    link=generate_link(message_obj.text)
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                 text="Your direct link:  [👉 HERE 🚀 ](%s)." %(link),
+                 parse_mode=ParseMode.MARKDOWN)
+    log_data(message_obj)
+
+
+echo_handler = MessageHandler(Filters.text,get_wa_link)
+dispatcher.add_handler(echo_handler)
+
+
+
+
+
+updater.start_polling()
